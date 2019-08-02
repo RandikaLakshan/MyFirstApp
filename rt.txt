@@ -1,0 +1,286 @@
+
+
+
+create type obj1 as object(
+
+    name varchar(5)
+    )/
+    
+    create type obj2 as object(
+    
+    age varchar(7)
+    )/
+    
+    create type obj3 as object(
+    
+    pobj1 obj1,
+    gender varchar(7)
+    
+    )/
+    
+    create type obj4 as object(
+    
+    pobj3 ref obj3
+    
+    
+    )/
+        create  table  tobj1 of obj1
+
+        create  table  tobj3 of obj3
+        create  table  tobj4 of obj4
+    
+    insert into tobj1 values('a')
+    insert into tobj3 values(obj1('b'),'1')
+    
+    select t.pobj3.pobj1.name from tobj4 t
+    
+    insert into tobj4 values((select ref(d) from tobj3 d))
+    
+    
+    
+    
+       
+/*tute2*/
+
+
+create type  Doctor_t as object(
+regNo varchar2(10), name varchar2(50), specialization varchar2(25))/
+
+
+create  type  HospitalVisit_t  as object(
+hosChg float, vDate date, refDoc ref doctor_t, docChg float)/
+
+create type HospitalVisit_tlb as table of HospitalVisit_t
+
+create type Patient_t as object (id char(10), name varchar2(50), dateofBirth date, phone char(10),
+               hospVisits HospitalVisit_tlb)/
+               
+
+               
+               
+create table Doctors of Doctor_t(regNo primary key);
+
+create table Patients of Patient_t(id primary key) nested table hospVisits store as hospVis_ntb;
+
+insert into doctors values(Doctor_t('1223441234',	'Dr. K. Perera',	'Gynecologist'));
+insert into doctors values (Doctor_t('1234421131',	'Dr. P. Weerasinghe',	'Dermatologist'));
+insert into doctors values (Doctor_t('2342111322',	'Prof. S. Fernando',	'Pediatrician'));
+insert into doctors values (Doctor_t('2344114344',	'Dr. K. Sathgunanathan',	'Pediatrician'));
+
+select *from doctors;
+insert into patients values(Patient_t('732821122V','Sampath Weerasinghe','23-JAN-73','0332124222',
+HospitalVisit_tlb(HospitalVisit_t(50.00,'24-MAY-06',
+(select ref(d) from doctors d where d.regNo='1223441234'),500.0))));
+
+insert into patients values(Patient_t('491221019V','Dulani Perera','3-FEB-49','0112233211',
+HospitalVisit_tlb(HospitalVisit_t(75.00	,'25-MAY-06',
+(select ref(d) from doctors d where d.regNo='2342111322'),550.00),HospitalVisit_t(90.00,'29-MAY-06',
+(select ref(d) from doctors d where d.regNo='2344114344'),300.00))));
+
+select sum(h.hosChg+h.docChg) from patients p, table(p.hospVisits) h
+where p.id='732821122V';
+
+select sum(h.hosChg+h.docChg) from table(select p.hospVisits from patients p where p.id='491221019V') h
+;
+select count(distinct(p.id)) from patients p, table(p.hospVisits) h
+where h.refDoc.name='Prof. S. Fernando';
+
+select count(distinct(p.id))from patients p, table(p.hospVisits) h
+where h.refDoc.specialization='Pediatrician';
+
+select count(*)
+from table (select p.id from patients p where p.hospVisits.refDoc.specialization='Pediatrician');
+
+select sum(h.docChg) from patients p, table(p.hospVisits) h
+group by p.id;
+
+select h.refDoc.regNo,h.refDoc.name from patients p, table(p.hospVisits) h
+group by h.refDoc.regNo, h.refDoc.name
+having  sum(h.docChg)<1000
+;
+
+/*worksheet2*/
+
+CREATE TYPE Dept_T
+/
+
+create table Employee OF Emp_T (
+	CONSTRAINT Employee_pk11 PRIMARY KEY (empno),
+	CONSTRAINT Employee_n11 firstname NOT NULL,
+	CONSTRAINT Employee_n11 lastname NOT NULL,
+	CONSTRAINT Employee_sex_ck11 CHECK (sex = 'M' OR sex = 'F' OR sex = 'm' OR sex = 'f')
+)
+/;
+
+CREATE TABLE Department OF Dept_T (
+	CONSTRAINT Department_pk11 PRIMARY KEY (deptno),
+	CONSTRAINT Employee_n11 deptname NOT NULL,
+	CONSTRAINT Employee_fk111 FOREIGN KEY (mgrno) REFERENCES Employee,
+	CONSTRAINT Employee_fk11 FOREIGN KEY (admrdept) REFERENCES Department
+)
+/;
+ALTER TABLE Employee
+ADD CONSTRAINT Employee_workdept_fk FOREIGN KEY (workdept) REFERENCES Department
+/;
+
+
+CREATE TYPE Emp_T AS OBJECT (
+	empno char(6),
+	firstname varchar(15),
+	lastname varchar(15),
+	workdept REF Dept_T,
+	sex char(11),
+	bdate date,
+	salary number(8,2)
+)
+/;
+
+CREATE TYPE Dept_T AS OBJECT (
+	deptno char(3),
+	deptname varchar(36),
+	mgrno REF Emp_T,
+	admrdept REF Dept_T
+)
+/;
+insert into Employee values(Emp_T('000010', 'CHRISTINE',' HAAS', null ,'F',' 14/AUG/53',' 72750'));
+insert into department values('A00',' SPIFFY COMPUTER SERVICE DIV', null, (select ref(d) from department d where d.deptno='A00'));
+
+
+
+
+
+UPDATE  department d SET d.mgrno= (SELECT REF(e) FROM Employee e WHERE e.empno = '000010')
+where d.deptno='A00';
+
+UPDATE  department d SET d.admrdept= (SELECT REF(e) FROM department e WHERE e.deptno = 'A00')
+where d.deptno='A00';
+
+update Employee e  SET e.workdept=(select ref(d) from department d where d.deptno='A00')
+where e.empno='000010';
+
+insert into department values('B01','PLANNING',null, (SELECT REF(e) FROM department e WHERE e.deptno = 'A00'));
+insert into department values('C01', 'INFORMATION CENTRE', null,(SELECT REF(e) FROM department e WHERE e.deptno = 'A00'));
+insert into department values('D01', 'DEVELOPMENT CENTRE', null,(SELECT REF(e) FROM department e WHERE e.deptno = 'C01'));
+
+insert into employee values('000020', 'MICHAEL',' THOMPSON',(select ref(d) from department d where d.deptno='B01'),'M', '02/FEB/68', '61250 ');
+insert into employee values('000030', 'SALLY',' KWAN' ,(select ref(d) from department d where d.deptno='C01') ,'F' ,'11/MAY/71' ,'58250' );
+insert into employee values('000060', 'IRVING',' STERN', (select ref(d) from department d where d.deptno='D01') ,'M' ,'07/JUL/65', '55555' );
+insert into employee values('000070', 'EVA',' PULASKI', (select ref(d) from department d where d.deptno='D01') ,'F', '26/MAY/73', '56170' );
+insert into employee values('000050', 'JOHN',' GEYER' ,(select ref(d) from department d where d.deptno='C01') ,'M' ,'15/SEP/55', '60175');
+insert into employee values('000090', 'EILEEN',' HENDERSON', (select ref(d) from department d where d.deptno='B01') ,'F', '15/MAY/61', '49750') ;
+insert into employee values('000100', 'THEODORE',' SPENSER', (select ref(d) from department d where d.deptno='B01') ,'M' ,'18/DEC/76', '46150');
+			
+			
+UPDATE  department d SET d.mgrno= (SELECT REF(e) FROM Employee e WHERE e.empno = '000020')
+where d.deptno='B01';
+
+UPDATE  department d SET d.mgrno= (SELECT REF(e) FROM Employee e WHERE e.empno = '000030')
+where d.deptno='C01';
+
+UPDATE  department d SET d.mgrno= (SELECT REF(e) FROM Employee e WHERE e.empno = '000060')
+where d.deptno='D01';
+
+
+select e.empno , e.workdept.deptno from Employee e;
+select d.deptno, d.admrdept.deptno from department d;
+
+select d.deptname, d.mgrno.lastname from department d ;
+select e.empno, e.lastname,e.firstname, e.workdept.deptname from employee e;
+select d.deptno,d.deptname, d.admrdept.deptname from department d;
+select d.deptno,d.deptname, d.admrdept.deptname d.admrdept.mgrno.lastname from department d;
+select e.empno, e.firstname, e.lastname, e.workdept.mgrno.salary from employee e;
+select  avg(e.salary) ,e.sex,e.workdept.deptno, e.workdept.deptname  from employee e group by (e.sex,e.workdept.deptno,e.workdept.deptname)
+
+    
+create type address as object(
+anumber varchar(10),
+aname varchar(10),
+asuburb varchar(10), 
+astate varchar(10),
+apin varchar(10))
+/ 
+
+create type obj_investments as object(
+
+company varchar(10),
+price varchar(10),
+idate varchar(10),
+qty varchar(10))
+/
+
+
+create type type_investments as table of  obj_investments
+
+create type obj_investment as object(
+
+iname varchar(15),
+iaddress address,
+investment type_investments
+
+)/
+create table clients of obj_investment nested table investment store as nested_investment
+
+Create type excharray as varray(5) of varchar(12) 
+
+create type obj_stocks as object(
+
+cname varchar(12), 
+cprice number(6,2),
+exchanges excharray ,
+dividend number(4,2), 
+earnings number(6,2))
+/
+
+create table stock of obj_stocks ;
+
+insert into stock values('BHP', '10.50', excharray('Sydney','New York'),'1.50',' 3.20');
+insert into stock values('IBM', '70.00', excharray('New York','London','Tokyo'),'4.25','10.00');
+insert into stock values('INTEL', '76.50', excharray('New York','London'),'5.00','12.40');
+insert into stock values(' FORD', '40.00', excharray('New York'),'2.00',' 8.50');
+insert into stock values('GM', '60.00', excharray('New York'),'2.50','9.20');
+insert into stock values('INFOSYS', '45.00', excharray('New York'),'3.00','7.80');
+
+insert into clients values('John Smith',address('3','East Av','Bentley','WA','6102'), 
+type_investments(obj_investments('BHP',' 12.00',' 02/10/01',' 1000'),obj_investments('BHP',' 10.50',' 08/06/02',' 2000'),
+obj_investments('IBM',' 58.00',' 12/02/00',' 500'),obj_investments('IBM ','65.00',' 10/04/01',' 1200'),
+obj_investments('INFOSYS',' 64.00',' 11/08/01',' 1000')))
+
+insert into clients values('Jill Brody',address('42','Bent St','Perth','WA ','6001'), 
+type_investments(obj_investments('INTEL',' 35.00',' 30/01/00',' 300'),
+obj_investments('INTEL',' 54.00',' 30/01/01',' 400'),obj_investments('INTEL ','60.00',' 02/10/01',' 200'),
+obj_investments('FORD ','40.00',' 05/10/99',' 300'),obj_investments('GM',' 55.50',' 12/12/00',' 500')))
+
+
+select c.iname,i.company,i.price,s.dividend,s.earnings from clients c,stock s ,table(c.investment) i  where i.company=s.cname
+
+select   i.company,c.iname,sum(i.qty), sum(i.price*i.qty)/sum(i.qty)  from clients c,stock s ,table(c.investment) i 
+where i.company=s.cname  group by (i.company,c.iname)
+
+select i.company, sum(i.qty),c.iname, sum(s.cprice*i.qty) from stock s,clients c,table(s.exchanges) ex, table(c.investment) i  where ex.column_value='New York'
+and i.company=s.cname group by (c.iname,i.company)
+
+select c.iname,sum(i.price) from clients c,table(c.investment) i group by c.iname
+
+select i.company,c.iname,sum(i.qty*i.price)-sum(s.cprice*i.qty) as profit from stock s, clients c, table(c.investment) i
+where s.cname=i.company group by (c.iname,i.company)
+
+insert into table(select investment from clients where iname='John Smith') i
+values(obj_investments('GM',' 55.50','12/12/00','500'))
+
+
+update table(select investment from clients where iname='Jill Brody') i
+set i.company='INFOSYS', i.price='64.00',i.idate='11/08/01', i.qty='1000'
+where i.company='GM'
+
+delete table(select investment from clients where iname='John Smith') i
+where i.company='INFOSYS'
+
+select c.iname,i.company,i.price,s.dividend,s.earnings from clients c,stock s ,table(c.investment) i  where i.company=s.cname
+
+
+
+
+
+
+    
+   
